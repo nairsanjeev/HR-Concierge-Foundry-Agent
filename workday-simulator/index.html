@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contoso Workday ESS Portal</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f6f8; color: #333; }
+        .header { background: linear-gradient(135deg, #1a5276, #2980b9); color: white; padding: 20px 40px; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.5em; }
+        .header .user-info { font-size: 0.9em; opacity: 0.9; }
+        .nav { background: #2c3e50; padding: 0 40px; }
+        .nav a { color: #ecf0f1; text-decoration: none; padding: 12px 20px; display: inline-block; font-size: 0.9em; transition: background 0.2s; }
+        .nav a:hover, .nav a.active { background: #1a5276; }
+        .container { max-width: 900px; margin: 30px auto; padding: 0 20px; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 30px; margin-bottom: 20px; }
+        .card h2 { color: #1a5276; margin-bottom: 15px; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .card h3 { color: #2c3e50; margin: 20px 0 10px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 5px; color: #555; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95em; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: #3498db; outline: none; box-shadow: 0 0 0 2px rgba(52,152,219,0.2); }
+        .form-group textarea { min-height: 100px; resize: vertical; }
+        .btn { padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.95em; font-weight: 600; transition: background 0.2s; }
+        .btn-primary { background: #3498db; color: white; }
+        .btn-primary:hover { background: #2980b9; }
+        .btn-success { background: #27ae60; color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-danger:hover { background: #c0392b; }
+        .alert { padding: 15px; border-radius: 4px; margin: 15px 0; display: none; }
+        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert-info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .file-upload { border: 2px dashed #ddd; padding: 20px; text-align: center; border-radius: 4px; cursor: pointer; }
+        .file-upload:hover { border-color: #3498db; background: #f8f9fa; }
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+        .badge-green { background: #d4edda; color: #155724; }
+        .badge-yellow { background: #fff3cd; color: #856404; }
+        .badge-red { background: #f8d7da; color: #721c24; }
+        .page { display: none; }
+        .page.active { display: block; }
+        .quick-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px; }
+        .quick-link { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .quick-link:hover { border-color: #3498db; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .quick-link .icon { font-size: 2em; margin-bottom: 10px; }
+        .quick-link .title { font-weight: 600; color: #2c3e50; }
+        .quick-link .desc { font-size: 0.85em; color: #666; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>&#x1F3E2; Contoso Workday ESS Portal</h1>
+        <div class="user-info">Welcome, Contoso Employee | <a href="#" style="color:#ecf0f1">Sign Out</a></div>
+    </div>
+    <div class="nav">
+        <a href="#" class="active" onclick="showPage('home')">Home</a>
+        <a href="#" onclick="showPage('ess')">Self-Service (ESS)</a>
+        <a href="#" onclick="showPage('complex')">HR Service Center</a>
+        <a href="#" onclick="showPage('erlr')">ERLR Intake</a>
+    </div>
+
+    <div class="container">
+        <!-- HOME PAGE -->
+        <div class="page active" id="page-home">
+            <div class="card">
+                <h2>Employee Self-Service Portal</h2>
+                <p>Welcome to the Contoso Workday Employee Self-Service Portal. Use the quick links below to manage your personal information.</p>
+                <div class="quick-links">
+                    <div class="quick-link" onclick="showPage('ess')">
+                        <div class="icon">&#x1F4DD;</div>
+                        <div class="title">Personal Data Changes</div>
+                        <div class="desc">Emergency contacts, address, preferred name</div>
+                    </div>
+                    <div class="quick-link" onclick="showPage('complex')">
+                        <div class="icon">&#x1F4CB;</div>
+                        <div class="title">HR Service Center</div>
+                        <div class="desc">Legal name, passport, bank details, photo</div>
+                    </div>
+                    <div class="quick-link" onclick="showPage('erlr')">
+                        <div class="icon">&#x1F6E1;&#xFE0F;</div>
+                        <div class="title">ERLR Intake</div>
+                        <div class="desc">File a formal workplace grievance</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ESS PAGE -->
+        <div class="page" id="page-ess">
+            <div class="card">
+                <h2>Employee Self-Service Changes <span class="badge badge-green">No Approval Required</span></h2>
+                <p>These changes take effect immediately.</p>
+
+                <h3>&#x260E; Emergency Contact</h3>
+                <div class="form-group"><label>Contact Name</label><input type="text" placeholder="Full name of emergency contact"></div>
+                <div class="form-group"><label>Relationship</label>
+                    <select><option>Spouse</option><option>Parent</option><option>Sibling</option><option>Friend</option><option>Other</option></select>
+                </div>
+                <div class="form-group"><label>Phone Number</label><input type="tel" placeholder="+1 (555) 000-0000"></div>
+                <div class="form-group"><label>Email</label><input type="email" placeholder="email@example.com"></div>
+
+                <h3>&#x1F3E0; Home Contact Information</h3>
+                <div class="form-group"><label>Street Address</label><input type="text" placeholder="123 Main St, Apt 4B"></div>
+                <div class="form-group"><label>City</label><input type="text" placeholder="City"></div>
+                <div class="form-group"><label>State/Province</label><input type="text" placeholder="State"></div>
+                <div class="form-group"><label>Zip/Postal Code</label><input type="text" placeholder="12345"></div>
+                <div class="form-group"><label>Country</label><select><option>United States</option><option>Canada</option><option>United Kingdom</option><option>India</option><option>Other</option></select></div>
+                <div class="form-group"><label>Personal Phone</label><input type="tel" placeholder="+1 (555) 000-0000"></div>
+                <div class="form-group"><label>Personal Email</label><input type="email" placeholder="personal@email.com"></div>
+
+                <h3>&#x1F464; Personal Information</h3>
+                <div class="form-group"><label>Marital Status</label>
+                    <select><option>Single</option><option>Married</option><option>Divorced</option><option>Widowed</option><option>Domestic Partnership</option></select>
+                </div>
+                <div class="form-group"><label>Date of Marriage (if applicable)</label><input type="date"></div>
+                <div class="form-group"><label>Pronouns</label>
+                    <select><option>He/Him</option><option>She/Her</option><option>They/Them</option><option>Other</option><option>Prefer not to say</option></select>
+                </div>
+
+                <h3>&#x2728; Preferred Name</h3>
+                <div class="form-group"><label>Preferred First Name</label><input type="text" placeholder="How you'd like to be addressed"></div>
+                <div class="form-group"><label>Preferred Last Name</label><input type="text" placeholder="Display last name"></div>
+
+                <br>
+                <button class="btn btn-primary" onclick="submitESS()">Submit Changes</button>
+                <div class="alert alert-success" id="ess-success">&#x2705; Your changes have been submitted successfully! Changes will take effect immediately.</div>
+            </div>
+        </div>
+
+        <!-- COMPLEX CHANGES PAGE -->
+        <div class="page" id="page-complex">
+            <div class="card">
+                <h2>HR Service Center - Complex Changes <span class="badge badge-yellow">Requires Documentation & Review</span></h2>
+                <p>These changes require supporting documentation and HR review.</p>
+
+                <h3>Select Change Type</h3>
+                <div class="form-group">
+                    <select id="complex-type" onchange="showComplexForm()">
+                        <option value="">-- Select a change type --</option>
+                        <option value="legal-name">Legal Name Change</option>
+                        <option value="passport">Passport & Visa Update</option>
+                        <option value="govt-id">Government ID (SSN/Tax ID)</option>
+                        <option value="licenses">Licenses & Certifications</option>
+                        <option value="bank">Payment Election (Bank Details)</option>
+                        <option value="photo">Photo Change</option>
+                    </select>
+                </div>
+
+                <div id="complex-form" style="display:none">
+                    <h3 id="complex-form-title">Change Details</h3>
+                    <div class="form-group"><label>Reason for Change</label>
+                        <textarea placeholder="Please describe why you need this change (e.g., marriage, renewal, correction)"></textarea>
+                    </div>
+                    <div class="form-group"><label>Supporting Documentation</label>
+                        <div class="file-upload">&#x1F4CE; Click to upload or drag and drop<br><small>Accepted: PDF, JPG, PNG (max 10MB)</small></div>
+                    </div>
+                    <div class="form-group"><label>Additional Notes</label>
+                        <textarea placeholder="Any additional information for the HR reviewer"></textarea>
+                    </div>
+                    <br>
+                    <button class="btn btn-primary" onclick="submitComplex()">Submit for Review</button>
+                    <div class="alert alert-success" id="complex-success">&#x2705; Your request has been submitted! HR will review within 3-5 business days. You'll receive a confirmation email shortly.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ERLR INTAKE PAGE -->
+        <div class="page" id="page-erlr">
+            <div class="card">
+                <h2>ERLR Formal Grievance Intake <span class="badge badge-red">Confidential</span></h2>
+                <p>Use this form to file a formal workplace grievance. All information is treated with strict confidentiality. Retaliation is prohibited.</p>
+
+                <div class="alert alert-info" style="display:block">
+                    &#x26A0;&#xFE0F; <strong>Before filing:</strong> Ensure your concern involves harassment, discrimination, retaliation, bullying, threats, ethical violations, or other serious misconduct. For everyday workplace concerns (desk disputes, noise, scheduling), please work with your manager.
+                </div>
+
+                <h3>Incident Details</h3>
+                <div class="form-group"><label>Type of Concern</label>
+                    <select>
+                        <option>Workplace Harassment</option>
+                        <option>Discrimination</option>
+                        <option>Retaliation</option>
+                        <option>Bullying / Hostile Work Environment</option>
+                        <option>Threats or Violence</option>
+                        <option>Ethical Violation / Fraud</option>
+                        <option>Unsafe Working Conditions</option>
+                        <option>Accommodation Violation</option>
+                        <option>Other Serious Misconduct</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Description of Incident(s)</label>
+                    <textarea placeholder="Please provide a detailed description of what happened. Include specific behaviors, statements, or actions."></textarea>
+                </div>
+                <div class="form-group"><label>Date(s) of Incident</label><input type="text" placeholder="e.g., May 10, 2026 or ongoing since March 2026"></div>
+                <div class="form-group"><label>Location</label><input type="text" placeholder="Office location, floor, meeting room, virtual, etc."></div>
+                <div class="form-group"><label>Person(s) Involved</label>
+                    <textarea placeholder="Names and roles of individuals involved (accused and any other parties)"></textarea>
+                </div>
+                <div class="form-group"><label>Witnesses</label>
+                    <textarea placeholder="Names of anyone who witnessed the incident(s), if applicable"></textarea>
+                </div>
+                <div class="form-group"><label>Previous Reporting</label>
+                    <select>
+                        <option>This is my first time reporting</option>
+                        <option>I reported to my manager previously</option>
+                        <option>I reported to HR previously</option>
+                        <option>I reported through Ethics Hotline</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Desired Outcome</label>
+                    <textarea placeholder="What outcome would you like to see? (e.g., investigation, mediation, policy change, transfer)"></textarea>
+                </div>
+                <div class="form-group"><label>Supporting Evidence (optional)</label>
+                    <div class="file-upload">&#x1F4CE; Upload emails, screenshots, or other evidence<br><small>Accepted: PDF, JPG, PNG, MSG, EML (max 25MB)</small></div>
+                </div>
+
+                <h3>Contact Preferences</h3>
+                <div class="form-group"><label>Preferred Contact Method</label>
+                    <select><option>Work Email</option><option>Personal Email</option><option>Phone</option><option>Teams Message</option></select>
+                </div>
+                <div class="form-group"><label>Best Time to Reach You</label><input type="text" placeholder="e.g., Mornings before 10am, After 4pm"></div>
+
+                <br>
+                <button class="btn btn-danger" onclick="submitERLR()">Submit Formal Grievance</button>
+                <div class="alert alert-success" id="erlr-success">&#x2705; Your formal grievance has been submitted confidentially. An ERLR case manager will be assigned within 48 hours and will contact you using your preferred method. Case reference: ERLR-2026-<span id="case-num"></span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('page-' + page).classList.add('active');
+            document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        function showComplexForm() {
+            const type = document.getElementById('complex-type').value;
+            const form = document.getElementById('complex-form');
+            const title = document.getElementById('complex-form-title');
+            if (type) {
+                form.style.display = 'block';
+                const titles = {
+                    'legal-name': 'Legal Name Change Request',
+                    'passport': 'Passport & Visa Update Request',
+                    'govt-id': 'Government ID Change Request',
+                    'licenses': 'Licenses & Certifications Update',
+                    'bank': 'Payment Election Change Request',
+                    'photo': 'Photo Update Request'
+                };
+                title.textContent = titles[type] || 'Change Details';
+            } else {
+                form.style.display = 'none';
+            }
+        }
+
+        function submitESS() {
+            document.getElementById('ess-success').style.display = 'block';
+            window.scrollTo({ top: document.getElementById('ess-success').offsetTop, behavior: 'smooth' });
+        }
+
+        function submitComplex() {
+            document.getElementById('complex-success').style.display = 'block';
+            window.scrollTo({ top: document.getElementById('complex-success').offsetTop, behavior: 'smooth' });
+        }
+
+        function submitERLR() {
+            const caseNum = Math.floor(1000 + Math.random() * 9000);
+            document.getElementById('case-num').textContent = caseNum;
+            document.getElementById('erlr-success').style.display = 'block';
+            window.scrollTo({ top: document.getElementById('erlr-success').offsetTop, behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>

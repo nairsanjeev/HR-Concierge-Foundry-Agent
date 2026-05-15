@@ -1,0 +1,27 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Environment / Secrets
+.env
+*.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temp / build artifacts
+conn-body.json
+patch-body.json
+project-body.json
+
+# OS
+Thumbs.db
+.DS_Store
