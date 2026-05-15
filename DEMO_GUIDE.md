@@ -3,10 +3,11 @@
 ## Overview
 
 **Agent**: HR Concierge  
-**Agent ID**: `asst_AR1WuyJx8uslI2GOgZjA4hAJ`  
+**Agent ID**: `asst_sqktCaGkeebbWfuGPtNgnQjo`  
 **Project Endpoint**: `https://hr-concierge-ai.services.ai.azure.com/api/projects/hr-concierge-project`  
-**Model**: gpt-5.4-mini (DataZoneStandard)  
-**Foundry Portal**: https://ai.azure.com
+**Model**: gpt-54-mini (DataZoneStandard)  
+**Foundry Portal**: https://ai.azure.com  
+**Workday Simulator**: https://workday-simulator.grayplant-4b62ead6.eastus2.azurecontainerapps.io/
 
 ---
 
@@ -19,10 +20,18 @@
 4. Open **Agents** → select **hr-concierge**
 5. Use the chat playground to test prompts below
 
-### Option 2: Run Test Script
+### Option 2: Run Integration Tests
 ```powershell
 cd C:\HRAgentService
-.\.venv\Scripts\python.exe test_agent.py
+$env:AZURE_SEARCH_ADMIN_KEY = "<your-search-admin-key>"
+.\.\.venv\Scripts\python.exe test_agent.py
+```
+
+### Option 3: Run Search-Grounded Agent Test
+```powershell
+cd C:\HRAgentService
+$env:AZURE_SEARCH_ADMIN_KEY = "<your-search-admin-key>"
+.\test_search_agent.ps1
 ```
 
 ---
@@ -43,7 +52,7 @@ These prompts should route to **ESS (Tier 1)** — immediate, no approval, no do
 
 **Key validation points:**
 - Agent says "no approval required" or "immediate"
-- Agent provides deep link: `https://workday.contoso.com/ess/personal-data`
+- Agent provides deep link: `https://workday-simulator.grayplant-4b62ead6.eastus2.azurecontainerapps.io/ess/personal-data`
 - Agent does NOT ask for documentation
 
 ---
@@ -65,7 +74,7 @@ These prompts should route to **HR Service Center (Tier 2)** — documentation r
 - Agent mentions "documentation required"
 - Agent specifies the exact document needed (certificate, voided check, etc.)
 - Agent mentions "3-5 business days" timeline
-- Agent provides deep link: `https://workday.contoso.com/hr-service-center/complex-changes`
+- Agent provides deep link: `https://workday-simulator.grayplant-4b62ead6.eastus2.azurecontainerapps.io/hr-service-center/complex-changes`
 
 ---
 
@@ -105,7 +114,7 @@ These should route to **ERLR** — formal investigation, confidential, 48-hour c
 - Agent mentions "formal grievance" or "ERLR"
 - Agent emphasizes CONFIDENTIALITY
 - Agent mentions retaliation is PROHIBITED
-- Agent provides deep link: `https://workday.contoso.com/erlr/intake`
+- Agent provides deep link: `https://workday-simulator.grayplant-4b62ead6.eastus2.azurecontainerapps.io/erlr/intake`
 - Agent mentions 48-hour case manager assignment
 - Agent shows empathy (e.g., "I'm sorry you're dealing with this")
 - Agent does NOT determine whether misconduct occurred
@@ -129,7 +138,7 @@ These should route to **GOOS** — voluntary mediation, no disciplinary action, 
 - Agent mentions "GOOS" or "Good Office Services" or "informal resolution"
 - Agent mentions it's VOLUNTARY
 - Agent mentions mediation/coaching/facilitation options
-- Agent provides deep link: `https://workday.contoso.com/goos/request`
+- Agent provides deep link: `https://workday-simulator.grayplant-4b62ead6.eastus2.azurecontainerapps.io/goos/request`
 - Agent mentions 2-day coordinator contact
 - Agent does NOT escalate unnecessarily
 
@@ -208,9 +217,29 @@ Agent: [Should immediately pivot to ERLR - this is now retaliation/threats]
 
 ---
 
+### Scenario 9: Knowledge Base Search (RAG)
+
+These prompts test the agent's ability to search the HR knowledge base for policy information.
+
+| # | Prompt | Expected Behavior |
+|---|--------|-------------------|
+| 9.1 | "What is the ERLR investigation timeline? What happens after an investigation?" | Agent calls `search_hr_knowledge_base`. Responds with details from KB (10-30 days, findings, appeal process). |
+| 9.2 | "What benefits does Contoso offer for parental leave?" | Agent searches KB. Returns policy details about parental leave from ServiceNow/SharePoint docs. |
+| 9.3 | "Tell me about the employee referral bonus program." | Agent searches KB. Returns relevant policy info or states not found. |
+| 9.4 | "What's the difference between short-term and long-term disability?" | Agent searches KB for disability policy information. |
+| 9.5 | "How do I request a reasonable accommodation?" | May route to ERLR (if discrimination) or search KB for accommodation process docs. |
+
+**Key validation points:**
+- Agent calls `search_hr_knowledge_base` function tool (visible in run steps)
+- Response includes specific details from indexed documents, not just generic knowledge
+- Agent may cite document sources
+- Falls back gracefully if no matching documents found
+
+---
+
 ## Function Tool Behavior
 
-The agent uses two function tools. During the demo, you'll see these being invoked:
+The agent uses three function tools. During the demo, you'll see these being invoked:
 
 ### `get_change_type_guidance`
 - **Input**: `change_type` (enum)
@@ -222,22 +251,25 @@ The agent uses two function tools. During the demo, you'll see these being invok
 - **Output**: recommended path (ERLR/GOOS), reason, deep link, process, protections/key points
 - **Triggers on**: Any workplace concern or grievance-related question
 
+### `search_hr_knowledge_base`
+- **Input**: `query` (string), `top_results` (integer, optional, default 3)
+- **Output**: Relevant HR policy documents, procedures, and FAQs from the knowledge base
+- **Triggers on**: Questions about HR policies, benefits, or procedures not directly covered in the agent's instructions
+- **Backend**: Calls Azure AI Search (index: `hr-knowledge-base`, 13 documents from SharePoint + ServiceNow)
+
 ---
 
 ## Key Deep Links Reference
 
+All deep links route to the live Workday Simulator deployed on Azure Container Apps:
+
 | Destination | URL |
 |-------------|-----|
-| ESS Portal | https://workday.contoso.com/ess/personal-data |
-| Emergency Contacts | https://workday.contoso.com/ess/emergency-contacts |
-| Preferred Name | https://workday.contoso.com/ess/preferred-name |
-| Home Address | https://workday.contoso.com/ess/home-address |
-| Complex Changes | https://workday.contoso.com/hr-service-center/complex-changes |
-| Legal Name | https://workday.contoso.com/hr-service-center/legal-name |
-| Passport/Visa | https://workday.contoso.com/hr-service-center/passport-visa |
-| Payment Election | https://workday.contoso.com/hr-service-center/payment-election |
-| ERLR Intake | https://workday.contoso.com/erlr/intake |
-| GOOS Request | https://workday.contoso.com/goos/request |
+| Home (Portal) | https://workday-simulator.grayplant-4b62ead6.eastus2.azurecontainerapps.io/ |
+| ESS Portal | https://workday-simulator.grayplant-4b62ead6.eastus2.azurecontainerapps.io/ess/personal-data |
+| Complex Changes | https://workday-simulator.grayplant-4b62ead6.eastus2.azurecontainerapps.io/hr-service-center/complex-changes |
+| ERLR Intake | https://workday-simulator.grayplant-4b62ead6.eastus2.azurecontainerapps.io/erlr/intake |
+| GOOS Request | https://workday-simulator.grayplant-4b62ead6.eastus2.azurecontainerapps.io/goos/request |
 
 ---
 
@@ -254,18 +286,39 @@ The agent uses two function tools. During the demo, you'll see these being invok
 
 ---
 
-## Workday Simulator
+## Workday Simulator (Live Deployment)
 
-A local HTML simulator is available for demonstrating the deep link destinations:
+**Public URL**: https://workday-simulator.grayplant-4b62ead6.eastus2.azurecontainerapps.io/
 
+The Workday simulator is deployed as an Azure Container App with public ingress. Deep links from the agent resolve directly to the correct page.
+
+### Infrastructure
+| Resource | Value |
+|----------|-------|
+| ACR | `hrconciergeacr.azurecr.io` |
+| Image | `hrconciergeacr.azurecr.io/workday-simulator:v1` |
+| Container Apps Environment | `hr-concierge-env` (eastus2) |
+| Container App | `workday-simulator` |
+| Ingress | External, port 80 |
+| Scale | 0-1 replicas (cold start ~5s) |
+
+### Pages
+- **Home**: Quick links to all sections
+- **ESS (Self-Service)**: Emergency contact, address, preferred name, personal info forms
+- **HR Service Center (Complex)**: Legal name, passport, govt ID, licenses, bank details, photo change
+- **ERLR Intake**: Full formal grievance filing form with incident details, witnesses, evidence upload
+- **GOOS Request**: Informal conflict resolution form with situation description and desired outcomes
+
+### Deep Link Routing
+Nginx rewrites URL paths to the SPA with query params. Client-side JavaScript reads `window.location.pathname` to show the correct page. Example:
+- Request: `/erlr/intake` → nginx serves `index.html?page=erlr` → JS shows ERLR page
+
+### Rebuild & Redeploy
+```powershell
+cd C:\HRAgentService\workday-simulator
+az acr build --registry hrconciergeacr --image workday-simulator:v2 .
+az containerapp update --name workday-simulator --resource-group rg-hr-concierge --image hrconciergeacr.azurecr.io/workday-simulator:v2
 ```
-C:\HRAgentService\workday-simulator\index.html
-```
-
-Open in a browser to show:
-- **ESS page**: Emergency contact, address, preferred name, personal info forms
-- **HR Service Center page**: Complex change type selector with upload
-- **ERLR Intake page**: Full grievance filing form with incident details
 
 ---
 
@@ -285,25 +338,26 @@ Open in a browser to show:
 │  │           │                                          │  │
 │  │     ┌─────┴──────┐                                  │  │
 │  │     │ Function    │                                  │  │
-│  │     │ Tools (x2)  │                                  │  │
+│  │     │ Tools (x3)  │                                  │  │
 │  │     └─────┬───────┘                                  │  │
 │  └───────────┼──────────────────────────────────────────┘  │
 │              │                                              │
 └──────────────┼──────────────────────────────────────────────┘
                │
-    ┌──────────┴──────────┐
-    │                     │
-    ▼                     ▼
-┌──────────────┐   ┌──────────────┐
-│get_change_   │   │screen_       │
-│type_guidance │   │grievance     │
-└──────┬───────┘   └──────┬───────┘
-       │                   │
-       ▼                   ▼
-┌──────────────┐   ┌──────────────┐
-│ESS / Complex │   │ERLR / GOOS   │
-│Routing Logic │   │Routing Logic │
-└──────────────┘   └──────────────┘
+    ┌──────────┴──────────────────────┐
+    │                │                │
+    ▼                ▼                ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────────┐
+│get_change_   │ │screen_       │ │search_hr_        │
+│type_guidance │ │grievance     │ │knowledge_base    │
+└──────┬───────┘ └──────┬───────┘ └────────┬─────────┘
+       │                │                   │
+       ▼                ▼                   ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────────┐
+│ESS / Complex │ │ERLR / GOOS   │ │Azure AI Search   │
+│Routing Logic │ │Routing Logic │ │(hr-knowledge-base│
+└──────────────┘ └──────────────┘ │ 13 documents)    │
+                                  └──────────────────┘
 
 Supporting Infrastructure:
 ┌──────────────────────────────────────────┐
@@ -311,12 +365,20 @@ Supporting Infrastructure:
 │ Index: hr-knowledge-base (13 documents)  │
 │ - SharePoint HR policies (5 docs)        │
 │ - ServiceNow KB articles (8 docs)        │
+│ Semantic config: hr-semantic-config       │
+│ Connection: hr-search-connection (API key)│
 └──────────────────────────────────────────┘
 ┌──────────────────────────────────────────┐
-│ External Systems                         │
+│ Workday Simulator (Azure Container Apps) │
+│ URL: workday-simulator.grayplant-4b62ead │
+│      6.eastus2.azurecontainerapps.io     │
+│ Pages: Home, ESS, Complex, ERLR, GOOS   │
+│ Routing: nginx rewrite → SPA deep links  │
+└──────────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│ External Systems (Data Sources)          │
 │ - SharePoint: HR Docs library            │
 │ - ServiceNow: KB articles (copilota2a)   │
-│ - Workday Simulator: ESS/ERLR forms      │
 └──────────────────────────────────────────┘
 ```
 
@@ -331,3 +393,23 @@ Supporting Infrastructure:
 | Agent not responding | Verify agent exists: check `list_agents` endpoint |
 | Function tool timeout | Check that tool outputs are being submitted within 60s |
 | RBAC denied | VanceD needs "Azure AI Developer" role on hr-concierge-ai resource |
+| Search tool returns empty | Verify `AZURE_SEARCH_ADMIN_KEY` env var is set; check index has docs: `az search query-key list` |
+| Workday Simulator timeout | Cold start from 0 replicas takes ~5s. First request may be slow. |
+| Simulator shows wrong page | Check nginx.conf routes match the URL path. Verify JS path matching in index.html. |
+| Container App 404 | Verify container is running: `az containerapp show --name workday-simulator --resource-group rg-hr-concierge --query "properties.runningStatus"` |
+| Deep links in agent response still show contoso.com | Re-run `create_agent.py` or update agent instructions via REST API |
+
+---
+
+## Environment Variables
+
+For running tests locally, set these:
+
+```powershell
+$env:AZURE_SEARCH_ADMIN_KEY = "<your-search-admin-key>"
+```
+
+Get the key:
+```powershell
+az search admin-key show --resource-group rg-hr-concierge --service-name hr-concierge-search --query primaryKey -o tsv
+```
