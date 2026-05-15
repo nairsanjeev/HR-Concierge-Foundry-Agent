@@ -2,7 +2,7 @@ $token = (az account get-access-token --resource "https://ai.azure.com" --query 
 $h = @{"Authorization"="Bearer $token";"Content-Type"="application/json"}
 $base = "https://hr-concierge-ai.services.ai.azure.com/api/projects/hr-concierge-project"
 $av = "api-version=2025-05-01"
-$agentId = "asst_sqktCaGkeebbWfuGPtNgnQjo"
+$agentId = "asst_PRduntIyCvJgvkvcc7y4bqSB"
 $searchKey = $env:AZURE_SEARCH_ADMIN_KEY
 if (-not $searchKey) { Write-Error "Set AZURE_SEARCH_ADMIN_KEY env var"; exit 1 }
 

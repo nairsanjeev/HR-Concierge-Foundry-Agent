@@ -3,7 +3,7 @@
 ## Overview
 
 **Agent**: HR Concierge  
-**Agent ID**: `asst_sqktCaGkeebbWfuGPtNgnQjo`  
+**Agent ID**: `asst_PRduntIyCvJgvkvcc7y4bqSB`  
 **Project Endpoint**: `https://hr-concierge-ai.services.ai.azure.com/api/projects/hr-concierge-project`  
 **Model**: gpt-54-mini (DataZoneStandard)  
 **Foundry Portal**: https://ai.azure.com  

@@ -6,7 +6,7 @@ import json
 import os
 
 PROJECT_ENDPOINT = "https://hr-concierge-ai.services.ai.azure.com/api/projects/hr-concierge-project"
-AGENT_ID = "asst_sqktCaGkeebbWfuGPtNgnQjo"
+AGENT_ID = "asst_PRduntIyCvJgvkvcc7y4bqSB"
 SEARCH_ENDPOINT = "https://hr-concierge-search.search.windows.net"
 SEARCH_INDEX = "hr-knowledge-base"
 SEARCH_KEY = os.environ.get("AZURE_SEARCH_ADMIN_KEY", "")

@@ -1,0 +1,89 @@
+{
+  "model": "gpt-54-mini",
+  "name": "hr-concierge",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_change_type_guidance",
+        "description": "Determines whether a personal data change is ESS (self-service) or requires HR Service Center (complex). Returns the process steps, required documentation, timeline, and deep link.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "change_type": {
+              "type": "string",
+              "description": "The type of personal data change",
+              "enum": ["emergency_contact", "home_address", "preferred_name", "personal_info", "legal_name", "passport_visa", "government_id", "licenses", "bank_details", "photo"]
+            }
+          },
+          "required": ["change_type"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "screen_grievance",
+        "description": "Screens a workplace concern to determine if it should be routed to formal ERLR (serious misconduct) or informal GOOS (everyday workplace issues). Returns the recommended path, process overview, and deep link.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "concern_summary": {
+              "type": "string",
+              "description": "Brief summary of the employee workplace concern"
+            },
+            "involves_misconduct": {
+              "type": "boolean",
+              "description": "Whether the concern involves harassment, discrimination, retaliation, threats, ethical violations, or other serious misconduct"
+            },
+            "concern_category": {
+              "type": "string",
+              "description": "Category that best describes the concern",
+              "enum": ["harassment", "discrimination", "retaliation", "bullying", "threats_violence", "ethical_violation", "safety", "accommodation", "interpersonal_conflict", "communication", "scheduling", "team_dynamics", "manager_disagreement", "work_life_balance", "exclusion", "unclear_expectations", "other"]
+            }
+          },
+          "required": ["concern_summary", "involves_misconduct", "concern_category"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "search_hr_knowledge_base",
+        "description": "Searches the HR knowledge base for policy information, procedures, guidelines, and FAQs from SharePoint and ServiceNow. Use when employee asks about HR policies, benefits, or procedures not directly covered in your instructions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Search query for HR documents and policies"
+            },
+            "top_results": {
+              "type": "integer",
+              "description": "Number of results to return (default 3, max 5)"
+            }
+          },
+          "required": ["query"]
+        }
+      }
+    },
+    {
+      "type": "azure_ai_search"
+    }
+  ],
+  "tool_resources": {
+    "azure_ai_search": {
+      "indexes": [
+        {
+          "index_connection_id": "hr-search-connection",
+          "index_name": "hr-knowledge-base"
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "description": "HR Concierge - Contoso AI HR assistant for personal data changes and grievance screening",
+    "version": "3.0.0",
+    "domain": "HR"
+  }
+}
