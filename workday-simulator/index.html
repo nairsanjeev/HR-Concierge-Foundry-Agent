@@ -57,6 +57,7 @@
         <a href="#" onclick="showPage('ess')">Self-Service (ESS)</a>
         <a href="#" onclick="showPage('complex')">HR Service Center</a>
         <a href="#" onclick="showPage('erlr')">ERLR Intake</a>
+        <a href="#" onclick="showPage('goos')">GOOS Request</a>
     </div>
 
     <div class="container">
@@ -80,6 +81,11 @@
                         <div class="icon">&#x1F6E1;&#xFE0F;</div>
                         <div class="title">ERLR Intake</div>
                         <div class="desc">File a formal workplace grievance</div>
+                    </div>
+                    <div class="quick-link" onclick="showPage('goos')">
+                        <div class="icon">&#x1F91D;</div>
+                        <div class="title">GOOS Request</div>
+                        <div class="desc">Informal conflict resolution &amp; mediation</div>
                     </div>
                 </div>
             </div>
@@ -225,6 +231,64 @@
                 <div class="alert alert-success" id="erlr-success">&#x2705; Your formal grievance has been submitted confidentially. An ERLR case manager will be assigned within 48 hours and will contact you using your preferred method. Case reference: ERLR-2026-<span id="case-num"></span></div>
             </div>
         </div>
+
+        <!-- GOOS PAGE -->
+        <div class="page" id="page-goos">
+            <div class="card">
+                <h2>GOOS - Good Office Services Request <span class="badge badge-green">Voluntary &amp; Confidential</span></h2>
+                <p>GOOS provides informal conflict resolution services including mediation, coaching, and facilitated conversations. Participation is voluntary for all parties.</p>
+
+                <div class="alert alert-info" style="display:block">
+                    &#x2139;&#xFE0F; <strong>Note:</strong> GOOS is for everyday workplace concerns like interpersonal conflicts, communication issues, or team dynamics. If your concern involves harassment, discrimination, or serious misconduct, please use the <a href="#" onclick="showPage('erlr')">ERLR Intake</a> form instead.
+                </div>
+
+                <h3>Your Concern</h3>
+                <div class="form-group"><label>Type of Concern</label>
+                    <select>
+                        <option>Interpersonal Conflict with Coworker</option>
+                        <option>Communication Style Differences</option>
+                        <option>Desk/Workspace Dispute</option>
+                        <option>Noise or Environmental Concern</option>
+                        <option>Scheduling Conflict</option>
+                        <option>Team Dynamics Issue</option>
+                        <option>Minor Disagreement with Manager</option>
+                        <option>Work-Life Balance Discussion</option>
+                        <option>Feeling Excluded from Team Activities</option>
+                        <option>Unclear Expectations or Role Ambiguity</option>
+                        <option>Other</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Description</label>
+                    <textarea placeholder="Please describe the situation. What's happening and how is it affecting you?"></textarea>
+                </div>
+                <div class="form-group"><label>How long has this been going on?</label>
+                    <select><option>Less than a week</option><option>1-2 weeks</option><option>1 month</option><option>2-3 months</option><option>More than 3 months</option></select>
+                </div>
+                <div class="form-group"><label>Have you attempted to resolve this yourself?</label>
+                    <select><option>Yes, I've spoken with the other person</option><option>Yes, I've spoken with my manager</option><option>No, I don't feel comfortable doing so</option><option>No, I'm not sure how to approach it</option></select>
+                </div>
+
+                <h3>Preferred Resolution Approach</h3>
+                <div class="form-group"><label>What type of support would be most helpful?</label>
+                    <select>
+                        <option>Mediation (facilitated conversation with the other party)</option>
+                        <option>Coaching (individual guidance for me)</option>
+                        <option>Facilitated team discussion</option>
+                        <option>Not sure - I'd like a GOOS coordinator to advise</option>
+                    </select>
+                </div>
+
+                <h3>Contact Preferences</h3>
+                <div class="form-group"><label>Preferred Contact Method</label>
+                    <select><option>Work Email</option><option>Teams Message</option><option>Phone</option></select>
+                </div>
+                <div class="form-group"><label>Best Time to Reach You</label><input type="text" placeholder="e.g., Mornings, After 3pm"></div>
+
+                <br>
+                <button class="btn btn-success" onclick="submitGOOS()">Submit GOOS Request</button>
+                <div class="alert alert-success" id="goos-success">&#x2705; Your GOOS request has been submitted. A GOOS coordinator will reach out within 2 business days to schedule an intake conversation. Reference: GOOS-2026-<span id="goos-num"></span></div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -271,6 +335,31 @@
             document.getElementById('erlr-success').style.display = 'block';
             window.scrollTo({ top: document.getElementById('erlr-success').offsetTop, behavior: 'smooth' });
         }
+
+        function submitGOOS() {
+            const goosNum = Math.floor(1000 + Math.random() * 9000);
+            document.getElementById('goos-num').textContent = goosNum;
+            document.getElementById('goos-success').style.display = 'block';
+            window.scrollTo({ top: document.getElementById('goos-success').offsetTop, behavior: 'smooth' });
+        }
+
+        // Handle deep linking via URL path or query param
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const page = params.get('page');
+            const path = window.location.pathname;
+            let target = null;
+            if (page) { target = page; }
+            else if (path.includes('/ess')) { target = 'ess'; }
+            else if (path.includes('/complex') || path.includes('/hr-service-center')) { target = 'complex'; }
+            else if (path.includes('/erlr')) { target = 'erlr'; }
+            else if (path.includes('/goos')) { target = 'goos'; }
+            if (target) {
+                document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                const el = document.getElementById('page-' + target);
+                if (el) el.classList.add('active');
+            }
+        })();
     </script>
 </body>
 </html>

@@ -3,9 +3,13 @@ import requests
 import subprocess
 import time
 import json
+import os
 
 PROJECT_ENDPOINT = "https://hr-concierge-ai.services.ai.azure.com/api/projects/hr-concierge-project"
-AGENT_ID = "asst_AR1WuyJx8uslI2GOgZjA4hAJ"
+AGENT_ID = "asst_sqktCaGkeebbWfuGPtNgnQjo"
+SEARCH_ENDPOINT = "https://hr-concierge-search.search.windows.net"
+SEARCH_INDEX = "hr-knowledge-base"
+SEARCH_KEY = os.environ.get("AZURE_SEARCH_ADMIN_KEY", "")
 
 def get_token():
     result = subprocess.run(
@@ -82,6 +86,8 @@ def test_agent(message, test_name):
                     output = get_change_guidance_response(func_args["change_type"])
                 elif func_name == "screen_grievance":
                     output = get_grievance_response(func_args)
+                elif func_name == "search_hr_knowledge_base":
+                    output = search_knowledge_base(func_args.get("query", ""), func_args.get("top_results", 3))
                 else:
                     output = json.dumps({"error": "Unknown function"})
                 
@@ -114,6 +120,32 @@ def test_agent(message, test_name):
             break
     
     print()
+
+def search_knowledge_base(query, top_results=3):
+    """Call Azure AI Search to query the HR knowledge base."""
+    if not SEARCH_KEY:
+        return json.dumps({"error": "AZURE_SEARCH_ADMIN_KEY not set"})
+    headers = {"api-key": SEARCH_KEY, "Content-Type": "application/json"}
+    body = {
+        "search": query,
+        "queryType": "semantic",
+        "semanticConfiguration": "hr-semantic-config",
+        "top": min(top_results, 5),
+        "select": "title,content,source"
+    }
+    resp = requests.post(
+        f"{SEARCH_ENDPOINT}/indexes/{SEARCH_INDEX}/docs/search?api-version=2024-07-01",
+        headers=headers, json=body
+    )
+    if resp.status_code == 200:
+        results = resp.json().get("value", [])
+        docs = []
+        for doc in results:
+            snippet = doc.get("content", "")[:500]
+            docs.append(f"## {doc.get('title', 'Untitled')}\n{snippet}\nSource: {doc.get('source', 'Unknown')}")
+        return "\n---\n".join(docs) if docs else "No results found."
+    return json.dumps({"error": f"Search failed: {resp.status_code}"})
+
 
 def get_change_guidance_response(change_type):
     """Simulate the get_change_type_guidance function response."""
@@ -210,6 +242,12 @@ if __name__ == "__main__":
     test_agent(
         "My coworker plays music too loudly and won't use headphones despite me asking. It's affecting my work.",
         "Workspace Dispute (GOOS)"
+    )
+    
+    # Test 5: Search-grounded query
+    test_agent(
+        "Can you search the knowledge base for information about the ERLR investigation timeline and appeal process?",
+        "Knowledge Base Search (Foundry IQ)"
     )
     
     print("\n" + "=" * 60)

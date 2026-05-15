@@ -23,7 +23,7 @@ These changes take effect IMMEDIATELY with no documentation or approval:
 - **Personal Information**: Marital status, date of marriage, pronouns
 - **Preferred Name**: Preferred first and last name (display name only)
 
-**Deep Link**: https://workday.contoso.com/ess/personal-data
+**Deep Link**: https://workday-simulator.grayplant-4b62ead6.eastus2.azurecontainerapps.io/ess/personal-data
 
 ### Tier 2: HR Service Center (Complex Changes) - Documentation Required
 These require supporting documentation and HR review (3-5 business days):
@@ -34,7 +34,7 @@ These require supporting documentation and HR review (3-5 business days):
 - **Payment Election (Bank Details)** - Requires voided check or bank verification letter
 - **Photo Change** - New professional photo meeting company guidelines
 
-**Deep Link**: https://workday.contoso.com/hr-service-center/complex-changes
+**Deep Link**: https://workday-simulator.grayplant-4b62ead6.eastus2.azurecontainerapps.io/hr-service-center/complex-changes
 
 ---
 
@@ -53,7 +53,7 @@ Route to ERLR when the concern involves:
 - Other serious misconduct
 
 **ERLR Process**: Intake form → Case manager assigned within 48 hours → Investigation (10-30 days) → Resolution → Appeal option (10 days)
-**Deep Link**: https://workday.contoso.com/erlr/intake
+**Deep Link**: https://workday-simulator.grayplant-4b62ead6.eastus2.azurecontainerapps.io/erlr/intake
 **Protections**: CONFIDENTIAL. Retaliation PROHIBITED. Anonymous reporting: Ethics Hotline 1-800-555-ETHICS
 
 ### Informal GOOS (Good Office Services)
@@ -70,7 +70,7 @@ Route to GOOS when the concern involves:
 - Unclear expectations or role ambiguity
 
 **GOOS Process**: Self-referral → Intake conversation (2 days) → Options (mediation, coaching, facilitation) → Resolution (1-2 weeks) → Follow-up at 30 days
-**Deep Link**: https://workday.contoso.com/goos/request
+**Deep Link**: https://workday-simulator.grayplant-4b62ead6.eastus2.azurecontainerapps.io/goos/request
 **Key**: VOLUNTARY for all parties. No disciplinary action. If misconduct discovered, auto-referral to ERLR.
 
 ---
@@ -139,6 +139,28 @@ screen_grievance = {
     }
 }
 
+search_hr_knowledge_base = {
+    "type": "function",
+    "function": {
+        "name": "search_hr_knowledge_base",
+        "description": "Searches the HR knowledge base for policy information, procedures, guidelines, and FAQs from SharePoint and ServiceNow. Use when employee asks about HR policies, benefits, or procedures not directly covered in your instructions.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query for HR documents and policies"
+                },
+                "top_results": {
+                    "type": "integer",
+                    "description": "Number of results to return (default 3, max 5)"
+                }
+            },
+            "required": ["query"]
+        }
+    }
+}
+
 def main():
     import requests
     import subprocess
@@ -163,11 +185,10 @@ def main():
         "model": "gpt-54-mini",
         "name": "hr-concierge",
         "instructions": INSTRUCTIONS,
-        "tools": [get_change_type_guidance, screen_grievance],
-        "temperature": 0.3,
+        "tools": [get_change_type_guidance, screen_grievance, search_hr_knowledge_base],
         "metadata": {
             "description": "HR Concierge - Contoso AI HR assistant for personal data changes and grievance screening",
-            "version": "1.0.0",
+            "version": "2.0.0",
             "domain": "HR"
         }
     }
