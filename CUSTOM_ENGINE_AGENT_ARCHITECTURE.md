@@ -862,6 +862,527 @@ flowchart LR
 
 ---
 
-*Document created: July 20, 2026*  
+## Appendix: Private Network (BYO VNet) Deployment
+
+### Overview
+
+In regulated industries (finance, healthcare, government), organizations require that **all AI workloads run inside a private virtual network** with no public internet exposure. This section describes how the Custom Engine Agent architecture changes when:
+
+- **Azure AI Foundry** is deployed with network isolation (BYO VNet / managed VNet)
+- **Bot Framework App** (App Service) is behind a private endpoint
+- **Azure AI Search** has public access disabled
+- **M365 Copilot** (a Microsoft-managed SaaS service) must still reach the bot
+
+---
+
+### Private Network Architecture
+
+```mermaid
+graph TB
+    subgraph "Microsoft 365 Cloud (Microsoft-managed)"
+        COP[M365 Copilot<br/>Agent Router]
+        ABS[Azure Bot Service<br/>Bot Channel Registration<br/>— always public-facing —]
+    end
+
+    subgraph "Customer Azure Subscription"
+        subgraph "VNet: vnet-hr-concierge (10.0.0.0/16)"
+            subgraph "Subnet: snet-bot (10.0.1.0/24)"
+                APP[App Service: hr-concierge-bot<br/>VNet-integrated<br/>Private Endpoint inbound]
+            end
+
+            subgraph "Subnet: snet-ai (10.0.2.0/24)"
+                PE_AI[Private Endpoint<br/>Microsoft.CognitiveServices<br/>hr-concierge-ai]
+                AI[Azure AI Foundry<br/>hr-concierge-ai<br/>Public access: DISABLED]
+            end
+
+            subgraph "Subnet: snet-search (10.0.3.0/24)"
+                PE_SR[Private Endpoint<br/>Microsoft.Search<br/>hr-concierge-search]
+                SR[Azure AI Search<br/>hr-concierge-search<br/>Public access: DISABLED]
+            end
+
+            subgraph "Subnet: snet-pe (10.0.4.0/24)"
+                PE_BOT[Private Endpoint<br/>Microsoft.Web/sites<br/>hr-concierge-bot]
+            end
+
+            DNS[Azure Private DNS Zones<br/>privatelink.cognitiveservices.azure.com<br/>privatelink.search.windows.net<br/>privatelink.azurewebsites.net]
+        end
+
+        subgraph "Network Security"
+            NSG[Network Security Groups<br/>Restrict ingress/egress per subnet]
+            FW[Azure Firewall or NVA<br/>— optional for egress control —]
+        end
+    end
+
+    COP -->|"Public internet"| ABS
+    ABS -->|"Calls bot messaging endpoint<br/>via App Service public hostname<br/>— OR via Service Tag routing —"| APP
+    APP -->|"Private endpoint<br/>10.0.2.x"| PE_AI
+    PE_AI --> AI
+    APP -->|"Private endpoint<br/>10.0.3.x"| PE_SR
+    PE_SR --> SR
+
+    DNS -.-> PE_AI
+    DNS -.-> PE_SR
+    DNS -.-> PE_BOT
+    NSG -.-> APP
+
+    style COP fill:#6f42c1,color:#fff
+    style ABS fill:#6f42c1,color:#fff
+    style APP fill:#0078d4,color:#fff
+    style AI fill:#50e6ff,color:#000
+    style SR fill:#ffb900,color:#000
+    style DNS fill:#4a4a4a,color:#fff
+```
+
+---
+
+### The Core Challenge: M365 Copilot → Private Bot
+
+M365 Copilot and Azure Bot Service are **Microsoft-managed SaaS services** that operate on the public internet. They cannot be placed inside your VNet. This creates a challenge:
+
+> **How does a public-facing SaaS service (Bot Service) reach a bot that is inside a private network?**
+
+#### Solution Options
+
+```mermaid
+flowchart TD
+    A[M365 Copilot sends message<br/>to Azure Bot Service] --> B{How does Bot Service<br/>reach your bot?}
+    
+    B -->|Option 1| C[App Service with<br/>Access Restrictions<br/>— Recommended —]
+    B -->|Option 2| D[Azure Front Door<br/>+ Private Link Origin]
+    B -->|Option 3| E[API Management<br/>in VNet]
+    
+    C --> C1["• App Service VNet-integrated (outbound)<br/>• Public hostname still active<br/>• Access Restrictions: allow only<br/>  AzureBotService service tag<br/>• All other inbound blocked"]
+    
+    D --> D1["• Front Door receives from Bot Service<br/>• Private Link to App Service origin<br/>• App Service fully private<br/>• WAF on Front Door (bonus)"]
+    
+    E --> E1["• APIM in internal VNet mode<br/>• External gateway receives Bot traffic<br/>• Forwards to private App Service<br/>• Rate limiting, JWT validation"]
+
+    style C fill:#27ae60,color:#fff
+    style D fill:#0078d4,color:#fff
+    style E fill:#f39c12,color:#000
+```
+
+---
+
+### Option 1 (Recommended): App Service with Access Restrictions + VNet Integration
+
+This is the simplest and most commonly used pattern.
+
+```mermaid
+graph LR
+    subgraph "Public Internet"
+        BOT_SVC[Azure Bot Service<br/>IP ranges: AzureBotService tag]
+    end
+
+    subgraph "App Service: hr-concierge-bot"
+        ACL[Access Restrictions<br/>ALLOW: AzureBotService service tag<br/>DENY: all other]
+        VNET_INT[VNet Integration<br/>Outbound → snet-bot]
+    end
+
+    subgraph "Private VNet"
+        AI_PE[AI Foundry<br/>Private Endpoint]
+        SR_PE[AI Search<br/>Private Endpoint]
+    end
+
+    BOT_SVC -->|"Allowed by<br/>service tag"| ACL
+    ACL --> VNET_INT
+    VNET_INT -->|"10.0.2.x"| AI_PE
+    VNET_INT -->|"10.0.3.x"| SR_PE
+
+    style ACL fill:#27ae60,color:#fff
+    style VNET_INT fill:#0078d4,color:#fff
+```
+
+**How it works:**
+1. App Service retains a public hostname (`hr-concierge-bot.azurewebsites.net`)
+2. **Access Restrictions** are configured to allow inbound traffic **only** from the `AzureBotService` service tag
+3. All other public inbound traffic is denied (no one else can reach the bot)
+4. App Service has **VNet Integration** for outbound — all calls to Foundry and Search go through private endpoints
+5. Azure AI Foundry and Search have **public network access disabled** — only reachable via private endpoints
+
+**Configuration:**
+
+```bash
+# Enable VNet Integration (outbound)
+az webapp vnet-integration add \
+  --resource-group rg-hr-concierge \
+  --name hr-concierge-bot \
+  --vnet vnet-hr-concierge \
+  --subnet snet-bot
+
+# Add Access Restriction — allow only Bot Service
+az webapp config access-restriction add \
+  --resource-group rg-hr-concierge \
+  --name hr-concierge-bot \
+  --priority 100 \
+  --service-tag AzureBotService \
+  --action Allow
+
+# Deny all other traffic (default deny)
+az webapp config access-restriction set \
+  --resource-group rg-hr-concierge \
+  --name hr-concierge-bot \
+  --default-action Deny
+```
+
+---
+
+### Option 2: Azure Front Door + Private Link Origin
+
+For organizations requiring the App Service to have **no public endpoint at all**.
+
+```mermaid
+graph LR
+    subgraph "Public"
+        BOT_SVC[Azure Bot Service]
+        AFD[Azure Front Door Premium<br/>WAF policy applied]
+    end
+
+    subgraph "Private VNet"
+        APP[App Service<br/>Public access: DISABLED<br/>Private Endpoint only]
+        AI_PE[AI Foundry PE]
+        SR_PE[AI Search PE]
+    end
+
+    BOT_SVC -->|"Bot messaging endpoint =<br/>Front Door custom domain"| AFD
+    AFD -->|"Private Link origin<br/>to App Service"| APP
+    APP --> AI_PE
+    APP --> SR_PE
+
+    style AFD fill:#6f42c1,color:#fff
+    style APP fill:#0078d4,color:#fff
+```
+
+**How it works:**
+1. App Service public access is **completely disabled** (private endpoint only)
+2. Azure Front Door Premium connects to App Service via **Private Link origin**
+3. Bot Channel Registration messaging endpoint is set to the Front Door URL
+4. Front Door applies WAF rules (bot protection, rate limiting)
+5. Bot Service calls Front Door → Front Door reaches App Service over private backbone
+
+**Trade-offs:**
+- ✅ App Service has zero public exposure
+- ✅ WAF provides additional protection layer
+- ❌ Requires Azure Front Door Premium (higher cost)
+- ❌ Additional DNS/certificate management
+
+---
+
+### Option 3: API Management (Internal VNet Mode)
+
+For enterprises with an existing APIM investment and strict API governance requirements.
+
+```mermaid
+graph LR
+    subgraph "Public"
+        BOT_SVC[Azure Bot Service]
+        APIM_GW[APIM External Gateway<br/>api.contoso.com]
+    end
+
+    subgraph "Private VNet"
+        APIM_INT[APIM Internal<br/>JWT validation, rate limiting,<br/>request transformation]
+        APP[App Service<br/>Private Endpoint]
+        AI_PE[AI Foundry PE]
+    end
+
+    BOT_SVC --> APIM_GW
+    APIM_GW --> APIM_INT
+    APIM_INT -->|"Private"| APP
+    APP --> AI_PE
+
+    style APIM_GW fill:#f39c12,color:#000
+    style APP fill:#0078d4,color:#fff
+```
+
+---
+
+### Private Endpoint Configuration for AI Foundry
+
+When Azure AI Foundry is deployed with BYO network, the agent API is only accessible via private endpoint:
+
+```mermaid
+graph TB
+    subgraph "Azure AI Foundry — Network Isolation"
+        AI_PUB["Public endpoint: DISABLED<br/>hr-concierge-ai.cognitiveservices.azure.com<br/>→ returns 403"]
+        AI_PE["Private Endpoint<br/>hr-concierge-ai.privatelink.cognitiveservices.azure.com<br/>→ resolves to 10.0.2.4"]
+        AI_AGENT[Agent: hr-concierge<br/>Threads, Runs, Messages API]
+    end
+
+    subgraph "Private DNS Zone"
+        PDNS["privatelink.cognitiveservices.azure.com<br/>A record: hr-concierge-ai → 10.0.2.4"]
+    end
+
+    subgraph "Bot App (VNet-integrated)"
+        BOT[Bot code calls:<br/>https://hr-concierge-ai.cognitiveservices.azure.com/...<br/>DNS resolves → 10.0.2.4 via Private DNS]
+    end
+
+    BOT -->|"Resolves privately"| PDNS
+    PDNS --> AI_PE
+    AI_PE --> AI_AGENT
+
+    style AI_PUB fill:#e74c3c,color:#fff
+    style AI_PE fill:#27ae60,color:#fff
+    style BOT fill:#0078d4,color:#fff
+```
+
+**Key points:**
+- The SDK endpoint URL **stays the same** (`https://hr-concierge-ai.cognitiveservices.azure.com`)
+- Azure Private DNS Zone ensures the hostname resolves to the private IP when called from within the VNet
+- No code changes needed — only infrastructure configuration
+- The Foundry project, agent, and model deployment all work identically over private endpoint
+
+---
+
+### Private AI Search Configuration
+
+```bash
+# Disable public access on AI Search
+az search service update \
+  --resource-group rg-hr-concierge \
+  --name hr-concierge-search \
+  --public-network-access disabled
+
+# Create private endpoint for Search
+az network private-endpoint create \
+  --resource-group rg-hr-concierge \
+  --name pe-hr-search \
+  --vnet-name vnet-hr-concierge \
+  --subnet snet-search \
+  --private-connection-resource-id /subscriptions/{sub}/resourceGroups/rg-hr-concierge/providers/Microsoft.Search/searchServices/hr-concierge-search \
+  --group-id searchService \
+  --connection-name search-pe-connection
+
+# Link Private DNS Zone
+az network private-dns zone create \
+  --resource-group rg-hr-concierge \
+  --name privatelink.search.windows.net
+
+az network private-dns link vnet create \
+  --resource-group rg-hr-concierge \
+  --zone-name privatelink.search.windows.net \
+  --name search-dns-link \
+  --virtual-network vnet-hr-concierge \
+  --registration-enabled false
+```
+
+---
+
+### Complete Private Network Data Flow
+
+```mermaid
+sequenceDiagram
+    participant E as 👤 Employee<br/>(Teams)
+    participant C as M365 Copilot<br/>(Public SaaS)
+    participant B as Azure Bot Service<br/>(Public SaaS)
+    participant F as App Service<br/>(VNet-integrated)
+    participant A as AI Foundry<br/>(Private Endpoint)
+    participant S as AI Search<br/>(Private Endpoint)
+
+    Note over C,B: PUBLIC INTERNET
+    Note over F,S: PRIVATE VNET (no public access)
+
+    E->>C: "I need to change my name"
+    C->>B: Route to Custom Engine Agent
+    B->>F: POST /api/messages<br/>(allowed via AzureBotService service tag)
+    
+    Note over F: App Service resolves AI Foundry hostname<br/>via Private DNS → 10.0.2.4
+
+    F->>A: POST /threads (via private endpoint 10.0.2.4)
+    F->>A: POST /threads/{id}/messages
+    F->>A: POST /threads/{id}/runs
+    A->>A: LLM processing (inside Microsoft network)
+    A-->>F: requires_action: tool call
+    F->>F: Execute tool logic locally
+    F->>A: Submit tool outputs (private endpoint)
+    
+    A->>S: RAG query (Foundry → Search via private backbone<br/>or via shared VNet if configured)
+    S-->>A: Document chunks
+    A-->>F: Final response (private endpoint)
+    
+    F-->>B: Response Activity
+    B-->>C: Deliver to channel
+    C-->>E: Rendered in Teams
+
+    Note over F,S: ALL traffic between Bot, Foundry,<br/>and Search stays on private network
+```
+
+---
+
+### Network Security Group Rules
+
+```mermaid
+graph TB
+    subgraph "NSG: nsg-snet-bot"
+        R1["Inbound ALLOW: AzureBotService → 443<br/>Inbound DENY: * → *<br/>Outbound ALLOW: VNet → VNet (10.0.0.0/16)<br/>Outbound ALLOW: AzureMonitor (for telemetry)<br/>Outbound DENY: Internet (optional)"]
+    end
+
+    subgraph "NSG: nsg-snet-ai"
+        R2["Inbound ALLOW: snet-bot (10.0.1.0/24) → 443<br/>Inbound DENY: * → *<br/>Outbound: managed by service"]
+    end
+
+    subgraph "NSG: nsg-snet-search"
+        R3["Inbound ALLOW: snet-ai (10.0.2.0/24) → 443<br/>Inbound ALLOW: snet-bot (10.0.1.0/24) → 443<br/>Inbound DENY: * → *"]
+    end
+
+    style R1 fill:#0078d4,color:#fff
+    style R2 fill:#50e6ff,color:#000
+    style R3 fill:#ffb900,color:#000
+```
+
+---
+
+### Managed VNet (AI Foundry) vs BYO VNet
+
+Azure AI Foundry supports two network isolation modes:
+
+| Aspect | Managed VNet | BYO VNet (Customer-managed) |
+|--------|-------------|---------------------------|
+| **VNet ownership** | Microsoft creates & manages | Customer creates & manages |
+| **Private endpoints** | Auto-provisioned in managed VNet | Customer creates in their VNet |
+| **Outbound control** | Allow only approved destinations | Full NSG/Firewall control |
+| **Complexity** | Low — mostly automated | High — customer manages networking |
+| **Use case** | Standard isolation needs | Strict compliance, custom routing, hub-spoke topology |
+| **AI Search connectivity** | Managed PE auto-created | Customer must configure PE + DNS |
+| **Bot integration** | Bot needs PE into managed VNet (or public allowed list) | Bot VNet-integrated into same VNet or peered VNet |
+
+**For this HR Concierge scenario (BYO VNet):**
+- Customer manages `vnet-hr-concierge`
+- All resources get private endpoints in customer-owned subnets
+- Hub-spoke or flat VNet topology depending on enterprise standards
+- Bot App Service uses VNet Integration to reach everything privately
+
+---
+
+### DNS Resolution Chain
+
+```mermaid
+flowchart LR
+    A[Bot code calls:<br/>hr-concierge-ai.cognitiveservices.azure.com] --> B{DNS Resolution}
+    B -->|"From public internet"| C["Public IP → 403 Forbidden<br/>(public access disabled)"]
+    B -->|"From inside VNet"| D[Azure Private DNS Zone<br/>privatelink.cognitiveservices.azure.com]
+    D --> E[CNAME → hr-concierge-ai.privatelink.cognitiveservices.azure.com]
+    E --> F[A record → 10.0.2.4<br/>(Private Endpoint NIC)]
+    F --> G[✅ Request reaches AI Foundry<br/>over private backbone]
+
+    style C fill:#e74c3c,color:#fff
+    style G fill:#27ae60,color:#fff
+```
+
+---
+
+### Infrastructure as Code (Bicep)
+
+```bicep
+// Private Endpoint for AI Foundry
+resource aiPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-11-01' = {
+  name: 'pe-hr-concierge-ai'
+  location: location
+  properties: {
+    subnet: {
+      id: vnet::subnetAi.id
+    }
+    privateLinkServiceConnections: [
+      {
+        name: 'ai-pe-connection'
+        properties: {
+          privateLinkServiceId: aiServices.id
+          groupIds: ['account']
+        }
+      }
+    ]
+  }
+}
+
+// Private DNS Zone for Cognitive Services
+resource privateDnsZoneAi 'Microsoft.Network/privateDnsZones@2020-06-01' = {
+  name: 'privatelink.cognitiveservices.azure.com'
+  location: 'global'
+}
+
+// Link DNS Zone to VNet
+resource dnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
+  parent: privateDnsZoneAi
+  name: 'ai-dns-vnet-link'
+  location: 'global'
+  properties: {
+    virtualNetwork: {
+      id: vnet.id
+    }
+    registrationEnabled: false
+  }
+}
+
+// App Service VNet Integration
+resource appServiceVnetIntegration 'Microsoft.Web/sites/networkConfig@2023-12-01' = {
+  parent: botAppService
+  name: 'virtualNetwork'
+  properties: {
+    subnetResourceId: vnet::subnetBot.id
+    swiftSupported: true
+  }
+}
+
+// App Service Access Restriction — only Bot Service
+resource appServiceConfig 'Microsoft.Web/sites/config@2023-12-01' = {
+  parent: botAppService
+  name: 'web'
+  properties: {
+    ipSecurityRestrictions: [
+      {
+        name: 'AllowBotService'
+        priority: 100
+        action: 'Allow'
+        tag: 'ServiceTag'
+        ipAddress: 'AzureBotService'
+      }
+      {
+        name: 'DenyAll'
+        priority: 200
+        action: 'Deny'
+        ipAddress: 'Any'
+      }
+    ]
+  }
+}
+```
+
+---
+
+### What Changes in the Bot Code?
+
+**Nothing.** That is the key benefit of private endpoints with Azure Private DNS:
+
+| Concern | Change Required? | Notes |
+|---------|-----------------|-------|
+| Foundry SDK endpoint URL | ❌ No | Same hostname, DNS resolves privately |
+| Authentication | ❌ No | Managed Identity works the same |
+| Agent API calls | ❌ No | Threads/Runs/Messages API unchanged |
+| Search queries | ❌ No | Same endpoint, private resolution |
+| Bot Framework protocol | ❌ No | Bot Service calls your public/restricted hostname |
+| Adaptive Cards | ❌ No | Rendered client-side in Teams |
+
+The only changes are **infrastructure** (VNet, Private Endpoints, DNS Zones, NSGs, Access Restrictions). Application code is network-topology agnostic.
+
+---
+
+### Checklist: Private Deployment
+
+- [ ] Create VNet with subnets for Bot, AI, Search, and Private Endpoints
+- [ ] Deploy Private Endpoint for Azure AI Foundry (Cognitive Services)
+- [ ] Deploy Private Endpoint for Azure AI Search
+- [ ] Create Private DNS Zones and link to VNet
+- [ ] Disable public network access on AI Foundry
+- [ ] Disable public network access on AI Search
+- [ ] Enable VNet Integration on App Service (outbound)
+- [ ] Configure Access Restrictions on App Service (allow `AzureBotService` only)
+- [ ] Update App Service DNS settings: `WEBSITE_DNS_SERVER=168.63.129.16` (Azure DNS)
+- [ ] Enable `WEBSITE_VNET_ROUTE_ALL=1` to route all outbound through VNet
+- [ ] Verify NSG rules allow subnet-to-subnet traffic on port 443
+- [ ] Test end-to-end: Teams → Bot → Foundry → Search (all private)
+
+---
+
+*Updated: July 20, 2026*  
 *Agent: HR Concierge v3.0.0*  
-*Pattern: Custom Engine Agent (M365 Copilot → Bot Framework → Azure AI Foundry)*
+*Pattern: Custom Engine Agent (M365 Copilot → Bot Framework → Azure AI Foundry)*  
+*Network: BYO VNet with Private Endpoints*
